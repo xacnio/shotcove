@@ -1,0 +1,38 @@
+{
+  "en": {
+    "open_gallery": "Open Gallery",
+    "open_folder": "Open Screenshots Folder",
+    "sync_now": "Sync Now",
+    "settings": "Settings",
+    "shortcuts_enabled": "Shortcuts enabled",
+    "quit": "Quit",
+    "transfers": "Open Mini Menu",
+    "capture_area": "Area",
+    "capture_window": "Window",
+    "capture_fullscreen": "Full screen",
+    "capture_fullscreen_current": "Current monitor",
+    "action_open_editor": "Editor",
+    "action_save": "Save",
+    "action_copy_image": "Copy",
+    "action_direct_link": "Direct Link",
+    "action_drive_link": "Drive Link"
+  },
+  "tr": {
+    "open_gallery": "Galeriyi aç",
+    "open_folder": "Ekran görüntüleri klasörünü aç",
+    "sync_now": "Şimdi senkronize et",
+    "settings": "Ayarlar",
+    "shortcuts_enabled": "Kısayollar etkin",
+    "quit": "Çıkış",
+    "transfers": "Mini menüyü aç",
+    "capture_area": "Alan",
+    "capture_window": "Pencere",
+    "capture_fullscreen": "Tam ekran",
+    "capture_fullscreen_current": "Mevcut monitör",
+    "action_open_editor": "Editör",
+    "action_save": "Kaydet",
+    "action_copy_image": "Kopyala",
+    "action_direct_link": "Direkt Link",
+    "action_drive_link": "Drive Link"
+  }
+}

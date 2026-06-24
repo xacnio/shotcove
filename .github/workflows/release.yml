@@ -1,0 +1,248 @@
+name: 'Build & Release'
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Step 0: Check if we should release
+  check-version:
+    runs-on: ubuntu-latest
+    outputs:
+      is_new_version: ${{ steps.check.outputs.is_new }}
+      new_tag: ${{ steps.check.outputs.tag }}
+      should_release: ${{ steps.check.outputs.should_release }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check version
+        id: check
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "is_new=false" >> $GITHUB_OUTPUT
+            echo "should_release=false" >> $GITHUB_OUTPUT
+            # Append short sha to ensure tauri-action still generates artifacts
+            SHA_SHORT=$(git rev-parse --short HEAD)
+            echo "tag=${TAG}-dev-${SHA_SHORT}" >> $GITHUB_OUTPUT
+          else
+            echo "is_new=true" >> $GITHUB_OUTPUT
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+            echo "New version $VERSION detected and release requested."
+          fi
+
+  # Step 1: Build frontend once
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
+      - name: Install dependencies
+        run: npm ci
+      - name: Build frontend
+        run: npm run build
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+          retention-days: 1
+
+  # Step 2: Build native binaries
+  build-tauri:
+    needs: [check-version, build-frontend]
+    runs-on: ${{ matrix.platform }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'windows-latest'
+            args: '--target x86_64-pc-windows-msvc'
+            rust-targets: 'x86_64-pc-windows-msvc'
+            cache-key: 'win-x64'
+
+          - platform: 'windows-latest'
+            args: '--target aarch64-pc-windows-msvc'
+            rust-targets: 'aarch64-pc-windows-msvc'
+            cache-key: 'win-arm64'
+
+          - platform: 'macos-latest'
+            args: '--target universal-apple-darwin'
+            rust-targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
+            cache-key: 'macos-universal'
+
+          - platform: 'ubuntu-22.04'
+            args: '--target x86_64-unknown-linux-gnu'
+            rust-targets: 'x86_64-unknown-linux-gnu'
+            cache-key: 'linux-x64'
+
+          - platform: 'ubuntu-22.04'
+            args: '--target aarch64-unknown-linux-gnu --bundles deb,rpm'
+            rust-targets: 'aarch64-unknown-linux-gnu'
+            cache-key: 'linux-arm64'
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select latest stable Xcode
+        if: runner.os == 'macOS'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - name: Install Linux dependencies (x64)
+        if: matrix.cache-key == 'linux-x64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libssl-dev libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libasound2-dev libxdo-dev
+      - name: Install Linux cross-compile dependencies (arm64)
+        if: matrix.cache-key == 'linux-arm64'
+        run: |
+          sudo dpkg --add-architecture arm64
+          # Add arm64 sources from ports.ubuntu.com
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ jammy main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/arm64.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ jammy-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/arm64.list
+          # Restrict existing sources to amd64 only
+          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libssl-dev libssl-dev:arm64 gcc-aarch64-linux-gnu g++-aarch64-linux-gnu patchelf \
+            libgtk-3-dev:arm64 libwebkit2gtk-4.1-dev:arm64 libappindicator3-dev:arm64 \
+            librsvg2-dev:arm64 libasound2-dev:arm64 libxdo-dev:arm64
+          echo "PKG_CONFIG_ALLOW_CROSS=1" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig" >> $GITHUB_ENV
+          echo "PKG_CONFIG_SYSROOT_DIR=/" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+      - name: Download frontend
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          targets: ${{ matrix.rust-targets }}
+      - name: Set up sccache
+        uses: mozilla-actions/sccache-action@v0.0.7
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+          shared-key: ${{ matrix.cache-key }}-${{ hashFiles('package.json') }}
+          # sccache already caches compiled objects; caching the whole target/
+          # dir here too would just double up on the repo's 10GB cache quota.
+          cache-targets: false
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: npm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            npm-${{ runner.os }}-
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Skip frontend build
+        run: node -e "const f='src-tauri/tauri.conf.json';const j=JSON.parse(require('fs').readFileSync(f,'utf8'));j.build.beforeBuildCommand='';require('fs').writeFileSync(f,JSON.stringify(j,null,4))"
+
+      - name: Build and Release
+        uses: tauri-apps/tauri-action@v0.6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          # Self-signed cert (no Apple Developer account): keeps the code
+          # signature identity stable across builds so macOS TCC permissions
+          # (Screen Recording) survive updates. Not notarized.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: 'Shotcove Self Signed'
+        with:
+          tagName: ${{ needs.check-version.outputs.new_tag }}
+          releaseName: "Shotcove ${{ needs.check-version.outputs.new_tag }}"
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}
+          includeRelease: ${{ needs.check-version.outputs.should_release == 'true' }}
+
+      - name: Upload Artifacts (if not releasing)
+        if: needs.check-version.outputs.should_release != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: shotcove-bins-${{ matrix.platform }}-${{ matrix.cache-key }}
+          path: |
+            src-tauri/target/**/release/bundle/msi/*.msi
+            src-tauri/target/**/release/bundle/nsis/*.exe
+            src-tauri/target/**/release/bundle/dmg/*.dmg
+            src-tauri/target/**/release/bundle/deb/*.deb
+            src-tauri/target/**/release/bundle/rpm/*.rpm
+            src-tauri/target/**/release/bundle/appimage/*.AppImage
+          if-no-files-found: warn
+
+  # Step 3: Finalize
+  finalize-release:
+    if: needs.check-version.outputs.should_release == 'true'
+    needs: [check-version, build-tauri]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Update Release Description
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+          BASE="https://github.com/${{ github.repository }}/releases/download/${TAG}"
+
+          REPO_URL="https://github.com/${{ github.repository }}"
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 ${TAG}^ 2>/dev/null || echo "")
+          if [ -z "$PREVIOUS_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s ([%h](${REPO_URL}/commit/%H))" -n 20)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s ([%h](${REPO_URL}/commit/%H))" $PREVIOUS_TAG..${TAG})
+          fi
+
+          cat > /tmp/release_body.md << 'HEREDOC'
+          ### 📦 Download Links
+
+          | Architecture | Windows | macOS | Linux |
+          | :--- | :--- | :--- | :--- |
+          HEREDOC
+
+          echo "| **x86-64 (64-bit)** | [EXE](${BASE}/Shotcove_${VERSION}_x64-setup.exe) · [MSI](${BASE}/Shotcove_${VERSION}_x64_en-US.msi) | [DMG](${BASE}/Shotcove_${VERSION}_universal.dmg) | [DEB](${BASE}/Shotcove_${VERSION}_amd64.deb) · [RPM](${BASE}/Shotcove-${VERSION}-1.x86_64.rpm) · [AppImage](${BASE}/Shotcove_${VERSION}_amd64.AppImage) |" >> /tmp/release_body.md
+          echo "| **ARM64 / Silicon** | [EXE](${BASE}/Shotcove_${VERSION}_arm64-setup.exe) | [DMG](${BASE}/Shotcove_${VERSION}_universal.dmg) | [DEB](${BASE}/Shotcove_${VERSION}_arm64.deb) · [RPM](${BASE}/Shotcove-${VERSION}-1.aarch64.rpm) |" >> /tmp/release_body.md
+          echo "" >> /tmp/release_body.md
+          echo "### 📝 What's New" >> /tmp/release_body.md
+          echo "$CHANGELOG" >> /tmp/release_body.md
+          echo "" >> /tmp/release_body.md
+          echo "---" >> /tmp/release_body.md
+          echo "*Automatically generated by CI*" >> /tmp/release_body.md
+
+          gh release edit "$TAG" --notes-file /tmp/release_body.md

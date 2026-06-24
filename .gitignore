@@ -1,0 +1,34 @@
+# Environment — contains API credentials, never commit
+.env
+
+# Updater signing keys — the private key must stay secret; the public key
+# isn't sensitive but is already embedded in src-tauri/tauri.conf.json
+# (pubkey), so tracking the file too is just redundant.
+updater.key
+updater.key.pub
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+src/data/legal.json
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
