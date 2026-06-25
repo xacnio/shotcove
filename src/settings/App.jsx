@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { invoke, listen } from "../lib/tauri.js";
+import { invoke, listen, emit } from "../lib/tauri.js";
 import TitleBar from "../components/TitleBar.jsx";
 import { MdKeyboard, MdPhotoCamera, MdLink, MdChevronRight, MdChevronLeft, MdTune, MdInfo } from "react-icons/md";
 import { SiGoogledrive } from "react-icons/si";
@@ -124,6 +124,17 @@ useEffect(() => { invoke("window_ready").catch(() => {}); }, []);
         settingsRef.current = fresh;
         setSettings(fresh);
       }));
+
+      // Dev-only hook for store_screenshots.rs; stripped from prod builds.
+      if (import.meta.env.DEV) {
+        unlisten.push(await listen("store-screenshot-cmd", ({ payload }) => {
+          if (payload?.action === "goto-tab") setPage(payload.tab);
+          else if (payload?.action === "set-drive-demo") {
+            setDrive({ connected: payload.connected, email: payload.email ?? null, name: payload.name ?? null, photo: payload.photo ?? null });
+          }
+          requestAnimationFrame(() => setTimeout(() => emit("store-screenshot-ready", { id: payload?.id }), 50));
+        }));
+      }
     })();
     return () => unlisten.forEach((u) => u());
   }, [refreshDriveStatus]);
