@@ -1,6 +1,6 @@
 [package]
 name = "shotcove"
-version = "1.0.3"
+version = "1.0.4"
 description = "Screenshot tool with Google Drive sync"
 authors = ["Alperen Cetin <me@xacnio.dev>"]
 license = "MIT"
