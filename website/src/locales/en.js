@@ -73,6 +73,7 @@ export default {
     noRelease: "No published release yet — check the GitHub repository for build instructions.",
     notAvailable: "Not available yet",
     viewAll: "View all releases on GitHub →",
+    msStore: "Get it from Microsoft Store",
     platforms: {
       windows: { label: "Windows", note: "10 / 11 · x64 & ARM64" },
       macos: { label: "macOS", note: "Universal · Apple Silicon & Intel" },

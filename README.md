@@ -6,6 +6,10 @@
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
   [![Version](https://img.shields.io/badge/version-1.0.5-blue)](https://github.com/xacnio/shotcove/releases)
   [![Website](https://img.shields.io/badge/website-shotcove-orange)](https://xacnio.github.io/shotcove/)
+
+  <a href="https://apps.microsoft.com/detail/9P3T7Q4B3PXZ?launch=true&mode=full" target="_blank">
+    <img src="https://get.microsoft.com/images/en-us%20dark.svg" width="180" alt="Get it from Microsoft Store" />
+  </a>
 </div>
 
 ---
@@ -77,6 +81,12 @@ Grab the latest build from [Releases](https://github.com/xacnio/shotcove/release
 [![Windows x64](https://img.shields.io/badge/x64-.exe%20%2F%20.msi-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/xacnio/shotcove/releases/latest)
 
 [![Windows ARM64](https://img.shields.io/badge/ARM64-.exe-5c8fc2?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/xacnio/shotcove/releases/latest)
+
+Or get it from the Microsoft Store:
+
+<a href="https://apps.microsoft.com/detail/9P3T7Q4B3PXZ?launch=true&mode=full" target="_blank">
+  <img src="https://get.microsoft.com/images/en-us%20dark.svg" width="180" alt="Get it from Microsoft Store" />
+</a>
 
 **🍎 macOS (11+)**
 

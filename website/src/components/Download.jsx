@@ -1,11 +1,11 @@
 import { FiDownload } from "react-icons/fi";
-import { formatBytes, assetLabel, sortByArch } from "../lib/platform.js";
+import { formatBytes, assetLabel, sortByArch, MS_STORE_URL, msStoreBadgeUrl } from "../lib/platform.js";
 import { useLanguage } from "../lib/LanguageContext.jsx";
 
 const PLATFORM_KEYS = ["windows", "macos", "linux"];
 
 export default function Download({ latestRelease }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const downloads = latestRelease?.downloads ?? [];
   const platforms = t("download.platforms");
 
@@ -25,6 +25,11 @@ export default function Download({ latestRelease }) {
               <h3 className="font-semibold text-stone-100">{p.label}</h3>
               <p className="text-xs text-stone-500 mt-1 mb-4">{p.note}</p>
               <div className="mt-auto flex flex-col gap-2">
+                {key === "windows" && (
+                  <a href={MS_STORE_URL} target="_blank" rel="noreferrer" className="inline-block mb-1">
+                    <img src={msStoreBadgeUrl(lang)} alt={t("download.msStore")} width={180} className="h-auto" />
+                  </a>
+                )}
                 {assets.length === 0 && (
                   <span className="text-xs text-stone-500">{t("download.notAvailable")}</span>
                 )}

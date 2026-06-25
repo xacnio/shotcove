@@ -1,3 +1,12 @@
+export const MS_STORE_URL = "https://apps.microsoft.com/detail/9P3T7Q4B3PXZ";
+
+const MS_STORE_BADGE_LANG = { en: "en-us", tr: "tr" };
+
+export function msStoreBadgeUrl(lang) {
+  const code = MS_STORE_BADGE_LANG[lang] ?? MS_STORE_BADGE_LANG.en;
+  return `https://get.microsoft.com/images/${code}%20dark.svg`;
+}
+
 export function detectPlatform() {
   if (typeof navigator === "undefined") return "windows";
   const ua = navigator.userAgent;

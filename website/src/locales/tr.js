@@ -73,6 +73,7 @@ export default {
     noRelease: "Henüz yayınlanmış bir sürüm yok — derleme talimatları için GitHub deposuna bakın.",
     notAvailable: "Henüz mevcut değil",
     viewAll: "GitHub'da tüm sürümleri görüntüle →",
+    msStore: "Microsoft Store'dan edinin",
     platforms: {
       windows: { label: "Windows", note: "10 / 11 · x64 ve ARM64" },
       macos: { label: "macOS", note: "Universal · Apple Silicon ve Intel" },

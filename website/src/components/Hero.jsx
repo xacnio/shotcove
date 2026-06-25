@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { FiChevronDown } from "react-icons/fi";
-import { detectPlatform, detectArch, sortByArch } from "../lib/platform.js";
+import { detectPlatform, detectArch, sortByArch, MS_STORE_URL, msStoreBadgeUrl } from "../lib/platform.js";
 import { useLanguage } from "../lib/LanguageContext.jsx";
 import Screenshot from "./Screenshot.jsx";
 
 const ARCH_LABELS = { x64: "x64", arm64: "ARM64" };
 
 export default function Hero({ latestVersion, downloads = [] }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [platform, setPlatform] = useState("windows");
   const [arch, setArch] = useState(null);
 
@@ -80,6 +80,11 @@ export default function Hero({ latestVersion, downloads = [] }) {
             {t("hero.otherPlatforms")}
           </a>
         </div>
+        {platform === "windows" && (
+          <a href={MS_STORE_URL} target="_blank" rel="noreferrer" className="mt-4 inline-block">
+            <img src={msStoreBadgeUrl(lang)} alt={t("download.msStore")} width={200} className="h-auto" />
+          </a>
+        )}
         <p className="mt-4 text-xs text-stone-500">{t("hero.license")}</p>
       </div>
 
