@@ -7,6 +7,7 @@ use crate::{
     PendingEdit, PendingEditMeta,
 };
 use image::RgbaImage;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 #[allow(unused_imports)]
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -382,7 +383,11 @@ fn open_editor_inner(app: &AppHandle, image: RgbaImage, meta: CaptureMeta, auto_
         }
         if q.is_empty() { "pages/editor.html".to_string() } else { format!("pages/editor.html?{}", q.join("&")) }
     };
-    let label = "editor".to_string();
+    // Each call gets its own window so several screenshots can be edited at
+    // once — labels must stay unique for the lifetime of the app.
+    static NEXT_EDITOR_ID: AtomicU32 = AtomicU32::new(0);
+    let editor_id = NEXT_EDITOR_ID.fetch_add(1, Ordering::Relaxed);
+    let label = format!("editor-{editor_id}");
     app.state::<PendingEditMeta>()
         .0
         .lock()
@@ -405,65 +410,32 @@ fn open_editor_inner(app: &AppHandle, image: RgbaImage, meta: CaptureMeta, auto_
     });
     let app2 = app.clone();
     let label_win = label.clone();
+    // Cascade new editor windows diagonally so several opened in a row
+    // don't land perfectly on top of one another.
+    let cascade = (editor_id % 8) as f64 * 32.0;
     let _ = app.run_on_main_thread(move || {
-        if let Some(w) = app2.get_webview_window(&label_win) {
-            use tauri_plugin_window_state::{AppHandleExt, StateFlags};
-            let _ = app2.save_window_state(StateFlags::all());
-            let _ = w.close();
-            let app3 = app2.clone();
-            let label_win2 = label_win.clone();
-            let editor_url = editor_url.clone();
-            tauri::async_runtime::spawn(async move {
-                tokio::time::sleep(std::time::Duration::from_millis(150)).await;
-                let app4 = app3.clone();
-                let _ = app3.run_on_main_thread(move || {
-                    let build = || -> tauri::Result<()> {
-                        let mut b = WebviewWindowBuilder::new(&app4, &label_win2, WebviewUrl::App(editor_url.into()))
-                            .title("Shotcove")
-                            .inner_size(1280.0, 800.0)
-                            .min_inner_size(1000.0, 620.0)
-                            .decorations(false)
-                            .transparent(cfg!(target_os = "macos"))
-                            .visible(false);
-                        #[cfg(target_os = "macos")]
-                        {
-                            b = b.effects(crate::tray::mac_rounded_effects());
-                        }
-                        #[cfg(not(target_os = "macos"))]
-                        {
-                            b = b.background_color(Color(15, 15, 15, 255));
-                        }
-                        b.build()?;
-                        Ok(())
-                    };
-                    if let Err(e) = build() {
-                        log::warn!("editor could not be opened: {e}");
-                    }
-                });
-            });
-        } else {
-            let build = || -> tauri::Result<()> {
-                let mut b = WebviewWindowBuilder::new(&app2, &label_win, WebviewUrl::App(editor_url.clone().into()))
-                    .title("Shotcove")
-                    .inner_size(1280.0, 800.0)
-                    .min_inner_size(1000.0, 620.0)
-                    .decorations(false)
-                    .transparent(cfg!(target_os = "macos"))
-                    .visible(false);
-                #[cfg(target_os = "macos")]
-                {
-                    b = b.effects(crate::tray::mac_rounded_effects());
-                }
-                #[cfg(not(target_os = "macos"))]
-                {
-                    b = b.background_color(Color(15, 15, 15, 255));
-                }
-                b.build()?;
-                Ok(())
-            };
-            if let Err(e) = build() {
-                log::warn!("editor could not be opened: {e}");
+        let build = || -> tauri::Result<()> {
+            let mut b = WebviewWindowBuilder::new(&app2, &label_win, WebviewUrl::App(editor_url.clone().into()))
+                .title("Shotcove")
+                .inner_size(1280.0, 800.0)
+                .min_inner_size(1000.0, 620.0)
+                .position(80.0 + cascade, 60.0 + cascade)
+                .decorations(false)
+                .transparent(cfg!(target_os = "macos"))
+                .visible(false);
+            #[cfg(target_os = "macos")]
+            {
+                b = b.effects(crate::tray::mac_rounded_effects());
             }
+            #[cfg(not(target_os = "macos"))]
+            {
+                b = b.background_color(Color(15, 15, 15, 255));
+            }
+            b.build()?;
+            Ok(())
+        };
+        if let Err(e) = build() {
+            log::warn!("editor could not be opened: {e}");
         }
     });
     label
