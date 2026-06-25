@@ -17,6 +17,33 @@ pub(crate) fn mac_rounded_effects() -> tauri::utils::config::WindowEffectsConfig
         .build()
 }
 
+/// The main screen's usable work area, excluding the menu bar and Dock, in
+/// the top-left-origin logical coordinates Tauri's window position/size use
+/// (AppKit's `NSScreen` frames are bottom-left-origin, so this converts).
+/// Returns `(x, y, width, height)`.
+#[cfg(target_os = "macos")]
+pub(crate) fn mac_visible_frame() -> Option<(f64, f64, f64, f64)> {
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::NSScreen;
+    let mtm = MainThreadMarker::new()?;
+    let screen = NSScreen::mainScreen(mtm)?;
+    let full = screen.frame();
+    let vf = screen.visibleFrame();
+    let x = vf.origin.x;
+    let y = full.size.height - (vf.origin.y + vf.size.height);
+    Some((x, y, vf.size.width, vf.size.height))
+}
+
+/// Centers a window of size `w`x`h` within the visible work area (falls back
+/// to `None` so callers can use Tauri's generic `.center()` instead).
+#[cfg(target_os = "macos")]
+pub(crate) fn mac_centered_position(w: f64, h: f64) -> Option<(f64, f64)> {
+    let (vx, vy, vw, vh) = mac_visible_frame()?;
+    let cw = w.min(vw);
+    let ch = h.min(vh);
+    Some((vx + (vw - cw) / 2.0, vy + (vh - ch) / 2.0))
+}
+
 #[cfg(target_os = "windows")]
 fn hwnd_of(w: &tauri::WebviewWindow) -> Option<windows::Win32::Foundation::HWND> {
     let h = w.hwnd().ok()?;
@@ -281,8 +308,21 @@ pub fn show_settings(app: &AppHandle) {
                 .resizable(false)
                 .decorations(false)
                 .transparent(cfg!(target_os = "macos"))
-                .visible(false)
-                .center();
+                .visible(false);
+                #[cfg(target_os = "macos")]
+                {
+                    // Avoid Tauri's generic .center(), which centers within the
+                    // full screen size and can leave the window's bottom edge
+                    // behind the Dock — center within the visible work area.
+                    settings_builder = match mac_centered_position(560.0, 640.0) {
+                        Some((x, y)) => settings_builder.position(x, y),
+                        None => settings_builder.center(),
+                    };
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    settings_builder = settings_builder.center();
+                }
                 #[cfg(target_os = "macos")]
                 {
                     settings_builder = settings_builder.effects(mac_rounded_effects());
@@ -404,25 +444,26 @@ pub fn show_main(app: &AppHandle) {
     } else {
         let app_inner = app.clone();
         let _ = app.run_on_main_thread(move || {
-            // Compute a safe initial size from the primary monitor so Windows never
-            // auto-maximizes the window because it exceeds the available work area.
-            let (win_w, win_h, min_w, min_h) = app_inner
-                .primary_monitor()
-                .ok()
-                .flatten()
-                .map(|m| {
-                    let sf = m.scale_factor();
-                    let ps = m.size();
-                    // Convert physical → logical, then subtract ~48 logical px for taskbar
-                    let lw = ps.width  as f64 / sf;
-                    let lh = ps.height as f64 / sf - 48.0;
-                    
+            // Compute a safe initial size from the screen's usable work area so
+            // Windows never auto-maximizes the window (it exceeds the available
+            // work area) and macOS never sizes/centers it into the Dock.
+            #[cfg(target_os = "macos")]
+            let usable = mac_visible_frame().map(|(_, _, w, h)| (w, h));
+            #[cfg(not(target_os = "macos"))]
+            let usable = app_inner.primary_monitor().ok().flatten().map(|m| {
+                let sf = m.scale_factor();
+                let ps = m.size();
+                // Convert physical → logical, then subtract ~48 logical px for taskbar
+                (ps.width as f64 / sf, ps.height as f64 / sf - 48.0)
+            });
+            let (win_w, win_h, min_w, min_h) = usable
+                .map(|(lw, lh)| {
                     // If the screen's usable size is smaller than the target minimum window
                     // size, shrink the minimum constraints dynamically to avoid a tao/winit
                     // panic (it asserts min size <= available size).
                     let min_w = lw.min(1150.0);
                     let min_h = lh.min(720.0);
-                    
+
                     let w = (lw * 0.72).clamp(min_w, lw.min(1200.0));
                     let h = (lh * 0.84).clamp(min_h, lh.min(900.0));
                     (w, h, min_w, min_h)
@@ -438,14 +479,21 @@ pub fn show_main(app: &AppHandle) {
             .resizable(true)
             .decorations(false)
             .transparent(cfg!(target_os = "macos"))
-            .visible(false)
-            .center();
+            .visible(false);
             #[cfg(target_os = "macos")]
             {
+                // Center within the visible work area, not Tauri's generic
+                // .center() (which uses the full screen and can leave the
+                // window's bottom edge behind the Dock).
+                gallery_builder = match mac_centered_position(win_w, win_h) {
+                    Some((x, y)) => gallery_builder.position(x, y),
+                    None => gallery_builder.center(),
+                };
                 gallery_builder = gallery_builder.effects(mac_rounded_effects());
             }
             #[cfg(not(target_os = "macos"))]
             {
+                gallery_builder = gallery_builder.center();
                 gallery_builder = gallery_builder.background_color(Color(15, 15, 15, 255));
             }
             #[allow(unused_variables)]

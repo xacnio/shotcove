@@ -414,28 +414,28 @@ fn open_editor_inner(app: &AppHandle, image: RgbaImage, meta: CaptureMeta, auto_
     // don't land perfectly on top of one another.
     let cascade = (editor_id % 8) as f64 * 32.0;
     let _ = app.run_on_main_thread(move || {
-        // Clamp the editor's size/position to the screen's logical work area —
+        // Clamp the editor's size/position to the screen's usable work area —
         // on small screens (e.g. a 13" MacBook at 1280x800 logical) the fixed
         // 1280x800 size used to fill the whole screen, and the cascade offset
-        // then pushed it off-screen entirely.
-        let (win_w, win_h, min_w, min_h, max_x, max_y) = app2
-            .primary_monitor()
-            .ok()
-            .flatten()
-            .map(|m| {
-                let sf = m.scale_factor();
-                let ps = m.size();
-                let lw = ps.width as f64 / sf;
-                let lh = ps.height as f64 / sf - 48.0; // menu bar / taskbar margin
-                let min_w = lw.min(1000.0);
-                let min_h = lh.min(620.0);
-                let w = lw.min(1280.0).max(min_w);
-                let h = lh.min(800.0).max(min_h);
-                (w, h, min_w, min_h, lw, lh)
-            })
-            .unwrap_or((1280.0, 800.0, 1000.0, 620.0, 1280.0, 800.0));
-        let pos_x = (80.0 + cascade).min((max_x - win_w).max(0.0));
-        let pos_y = (60.0 + cascade).min((max_y - win_h).max(0.0));
+        // then pushed it off-screen (or under the Dock on macOS) entirely.
+        #[cfg(target_os = "macos")]
+        let usable = crate::tray::mac_visible_frame();
+        #[cfg(not(target_os = "macos"))]
+        let usable = app2.primary_monitor().ok().flatten().map(|m| {
+            let sf = m.scale_factor();
+            let ps = m.size();
+            let lw = ps.width as f64 / sf;
+            let lh = ps.height as f64 / sf - 48.0; // taskbar margin
+            (0.0, 0.0, lw, lh)
+        });
+        // (area_x, area_y, area_w, area_h): the usable work area's origin + size.
+        let (area_x, area_y, area_w, area_h) = usable.unwrap_or((0.0, 0.0, 1280.0, 800.0));
+        let min_w = area_w.min(1000.0);
+        let min_h = area_h.min(620.0);
+        let win_w = area_w.min(1280.0).max(min_w);
+        let win_h = area_h.min(800.0).max(min_h);
+        let pos_x = (area_x + 80.0 + cascade).min(area_x + area_w - win_w).max(area_x);
+        let pos_y = (area_y + 60.0 + cascade).min(area_y + area_h - win_h).max(area_y);
         let build = || -> tauri::Result<()> {
             let mut b = WebviewWindowBuilder::new(&app2, &label_win, WebviewUrl::App(editor_url.clone().into()))
                 .title("Shotcove")
