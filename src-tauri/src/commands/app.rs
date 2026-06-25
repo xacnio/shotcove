@@ -85,6 +85,7 @@ pub async fn save_settings(
     if settings.drive_folder_name != old.drive_folder_name {
         tray::on_library_folder_change(&app);
     }
+    let _ = app.emit("settings-changed", ());
     Ok(())
 }
 
