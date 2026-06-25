@@ -414,12 +414,34 @@ fn open_editor_inner(app: &AppHandle, image: RgbaImage, meta: CaptureMeta, auto_
     // don't land perfectly on top of one another.
     let cascade = (editor_id % 8) as f64 * 32.0;
     let _ = app.run_on_main_thread(move || {
+        // Clamp the editor's size/position to the screen's logical work area —
+        // on small screens (e.g. a 13" MacBook at 1280x800 logical) the fixed
+        // 1280x800 size used to fill the whole screen, and the cascade offset
+        // then pushed it off-screen entirely.
+        let (win_w, win_h, min_w, min_h, max_x, max_y) = app2
+            .primary_monitor()
+            .ok()
+            .flatten()
+            .map(|m| {
+                let sf = m.scale_factor();
+                let ps = m.size();
+                let lw = ps.width as f64 / sf;
+                let lh = ps.height as f64 / sf - 48.0; // menu bar / taskbar margin
+                let min_w = lw.min(1000.0);
+                let min_h = lh.min(620.0);
+                let w = lw.min(1280.0).max(min_w);
+                let h = lh.min(800.0).max(min_h);
+                (w, h, min_w, min_h, lw, lh)
+            })
+            .unwrap_or((1280.0, 800.0, 1000.0, 620.0, 1280.0, 800.0));
+        let pos_x = (80.0 + cascade).min((max_x - win_w).max(0.0));
+        let pos_y = (60.0 + cascade).min((max_y - win_h).max(0.0));
         let build = || -> tauri::Result<()> {
             let mut b = WebviewWindowBuilder::new(&app2, &label_win, WebviewUrl::App(editor_url.clone().into()))
                 .title("Shotcove")
-                .inner_size(1280.0, 800.0)
-                .min_inner_size(1000.0, 620.0)
-                .position(80.0 + cascade, 60.0 + cascade)
+                .inner_size(win_w, win_h)
+                .min_inner_size(min_w, min_h)
+                .position(pos_x, pos_y)
                 .decorations(false)
                 .transparent(cfg!(target_os = "macos"))
                 .visible(false);
@@ -449,10 +471,15 @@ pub fn open_overlay(app: &AppHandle, mx: i32, my: i32, mw: u32, mh: u32, scale: 
             let _ = loading.close();
         }
         let build = || -> tauri::Result<()> {
-            let lx = mx as f64 / scale as f64;
-            let ly = my as f64 / scale as f64;
-            let lw = mw as f64 / scale as f64;
-            let lh = mh as f64 / scale as f64;
+            // On macOS, xcap's monitor x/y/width/height are already in points
+            // (CGDisplayBounds), matching the logical units Tauri's window
+            // position/size expect — dividing by `scale` again would shrink
+            // and mis-position the overlay. On Windows they're physical
+            // pixels, so the division is needed there.
+            #[cfg(target_os = "macos")]
+            let (lx, ly, lw, lh) = { let _ = scale; (mx as f64, my as f64, mw as f64, mh as f64) };
+            #[cfg(not(target_os = "macos"))]
+            let (lx, ly, lw, lh) = (mx as f64 / scale as f64, my as f64 / scale as f64, mw as f64 / scale as f64, mh as f64 / scale as f64);
 
             let url = "pages/overlay.html";
             let _win = WebviewWindowBuilder::new(
@@ -485,11 +512,12 @@ fn open_overlay_for_monitor(app: &AppHandle, label: String, mon_index: usize, mx
     let url = "pages/overlay.html";
     let _ = app.run_on_main_thread(move || {
         let build = || -> tauri::Result<()> {
-            let lx = mx as f64 / scale as f64;
-            let ly = my as f64 / scale as f64;
-            let lw = mw as f64 / scale as f64;
-            let lh = mh as f64 / scale as f64;
-            
+            // See open_overlay() above for why macOS skips the scale division.
+            #[cfg(target_os = "macos")]
+            let (lx, ly, lw, lh) = { let _ = scale; (mx as f64, my as f64, mw as f64, mh as f64) };
+            #[cfg(not(target_os = "macos"))]
+            let (lx, ly, lw, lh) = (mx as f64 / scale as f64, my as f64 / scale as f64, mw as f64 / scale as f64, mh as f64 / scale as f64);
+
             let _win = WebviewWindowBuilder::new(
                 &app2,
                 &label,
