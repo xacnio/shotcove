@@ -118,7 +118,7 @@ export default {
         useDefault: "Use default (Shotcove)",
         skip: "Skip",
         manualHint: "Or type a folder name:",
-        manualPlaceholder: "e.g. Screenpat",
+        manualPlaceholder: "e.g. Shotcove",
         manualConfirm: "Use",
       },
     },

@@ -118,7 +118,7 @@ export default {
         useDefault: "Varsayılanı kullan (Shotcove)",
         skip: "Atla",
         manualHint: "Veya klasör adı yaz:",
-        manualPlaceholder: "örn. Screenpat",
+        manualPlaceholder: "örn. Shotcove",
         manualConfirm: "Kullan",
       },
     },
