@@ -100,12 +100,12 @@ jobs:
             rust-targets: 'aarch64-pc-windows-msvc'
             cache-key: 'win-arm64'
 
-          # Pinned to 14, not -latest: macOS 15 runners block all trust-settings
-          # modification from CI (SIP/TCC), even via `sudo authorizationdb` -
-          # see https://github.com/actions/runner-images/issues/11893. Works
-          # fine on 14; revisit if GitHub retires that image.
+          # TEMP TEST: macos-14 (avoids the macos-15 trust-settings CI block)
+          # + --no-default-features (drops screencapturekit/apple-metal, whose
+          # Swift build is failing here) to isolate whether that's the cause.
+          # xcap is still the always-available fallback - see capture_macos.rs.
           - platform: 'macos-14'
-            args: '--target universal-apple-darwin'
+            args: '--target universal-apple-darwin -- --no-default-features'
             rust-targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
             cache-key: 'macos-universal'
 
