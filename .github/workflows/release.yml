@@ -15,6 +15,7 @@ jobs:
       is_new_version: ${{ steps.check.outputs.is_new }}
       new_tag: ${{ steps.check.outputs.tag }}
       should_release: ${{ steps.check.outputs.should_release }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,6 +38,20 @@ jobs:
             echo "tag=$TAG" >> $GITHUB_OUTPUT
             echo "New version $VERSION detected and release requested."
           fi
+      - name: Generate changelog
+        id: changelog
+        shell: bash
+        run: |
+          REPO_URL="https://github.com/${{ github.repository }}"
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -z "$PREVIOUS_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s ([%h](${REPO_URL}/commit/%H))" -n 20)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s ([%h](${REPO_URL}/commit/%H))" ${PREVIOUS_TAG}..HEAD)
+          fi
+          echo "changelog<<CHANGELOG_EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "CHANGELOG_EOF" >> $GITHUB_OUTPUT
 
   # Step 1: Build frontend once
   build-frontend:
@@ -177,6 +192,7 @@ jobs:
         with:
           tagName: ${{ needs.check-version.outputs.new_tag }}
           releaseName: "Shotcove ${{ needs.check-version.outputs.new_tag }}"
+          releaseBody: ${{ needs.check-version.outputs.changelog }}
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
@@ -210,18 +226,11 @@ jobs:
       - name: Update Release Description
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHANGELOG: ${{ needs.check-version.outputs.changelog }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
           TAG="v$VERSION"
           BASE="https://github.com/${{ github.repository }}/releases/download/${TAG}"
-
-          REPO_URL="https://github.com/${{ github.repository }}"
-          PREVIOUS_TAG=$(git describe --tags --abbrev=0 ${TAG}^ 2>/dev/null || echo "")
-          if [ -z "$PREVIOUS_TAG" ]; then
-            CHANGELOG=$(git log --pretty=format:"- %s ([%h](${REPO_URL}/commit/%H))" -n 20)
-          else
-            CHANGELOG=$(git log --pretty=format:"- %s ([%h](${REPO_URL}/commit/%H))" $PREVIOUS_TAG..${TAG})
-          fi
 
           cat > /tmp/release_body.md << 'HEREDOC'
           ### 📦 Download Links
