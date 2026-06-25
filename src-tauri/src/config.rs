@@ -335,6 +335,10 @@ pub struct Settings {
     /// Last app version the user has seen "What's New" for.
     #[serde(default)]
     pub last_seen_version: String,
+    /// Update version the user has already been notified about, so the
+    /// "update available" modal doesn't reappear on every gallery open.
+    #[serde(default)]
+    pub last_notified_update_version: String,
 }
 
 impl Default for Settings {
@@ -374,6 +378,7 @@ impl Default for Settings {
             auto_update: true,
             accepted_legal_version: String::new(),
             last_seen_version: String::new(),
+            last_notified_update_version: String::new(),
         }
     }
 }

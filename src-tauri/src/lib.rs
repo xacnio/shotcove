@@ -252,6 +252,7 @@ pub fn run() {
             sync::clear_sync_queue,
             commands::update::get_app_version,
             commands::update::check_for_update,
+            commands::update::get_pending_update,
             commands::update::download_and_install_update,
             commands::update::get_release_history,
         ])
@@ -321,7 +322,8 @@ pub fn run() {
                 }
             }
             let launched_at_boot = std::env::args().any(|a| a == "--autostart");
-            if !launched_at_boot && store.get().start_with_gallery {
+            let gallery_will_open = !launched_at_boot && store.get().start_with_gallery;
+            if gallery_will_open {
                 tray::show_main(app.app_handle());
             }
             if store.get().auto_update && !win_util::is_packaged() {
@@ -333,7 +335,17 @@ pub fn run() {
                         let version = update.version.clone();
                         let pending = update_app.state::<Arc<commands::update::PendingUpdate>>();
                         *pending.0.lock().await = Some(update);
-                        let _ = update_app.emit("update-available", version);
+                        let _ = update_app.emit("update-available", version.clone());
+                        // No gallery window to surface the modal in — at least
+                        // let the user know; it'll be waiting next time they
+                        // open the gallery from the tray (see get_pending_update).
+                        if !gallery_will_open {
+                            notify(
+                                &update_app,
+                                "Shotcove",
+                                &format!("Update available: v{version}. Open Shotcove from the tray to install."),
+                            );
+                        }
                     }
                 });
             }

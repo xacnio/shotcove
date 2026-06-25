@@ -588,6 +588,10 @@ export default {
     title: "What's New",
     close: "Got it",
   },
+  updateModal: {
+    title: "Update available",
+    later: "Later",
+  },
   overlay: {
     areaHint:       "Select an area · Press Esc or right-click to cancel",
     areaHintFrozen: "Screen frozen — select area · Middle mouse for live · Esc to cancel",

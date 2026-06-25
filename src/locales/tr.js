@@ -588,6 +588,10 @@ export default {
     title: "Yenilikler",
     close: "Anladım",
   },
+  updateModal: {
+    title: "Güncelleme mevcut",
+    later: "Daha sonra",
+  },
   overlay: {
     areaHint:       "Bir alan seçin · İptal için Esc / sağ tık",
     areaHintFrozen: "Ekran donduruldu — alan seçin · Orta tuş ile canlı moda geç · İptal için Esc",

@@ -26,6 +26,15 @@ pub fn get_app_version(app: AppHandle) -> String {
     app.package_info().version.to_string()
 }
 
+fn update_info(update: &Update) -> UpdateInfo {
+    UpdateInfo {
+        version: update.version.clone(),
+        current_version: update.current_version.clone(),
+        body: update.body.clone(),
+        date: update.date.map(|d| d.to_string()),
+    }
+}
+
 #[tauri::command]
 pub async fn check_for_update(
     app: AppHandle,
@@ -35,12 +44,7 @@ pub async fn check_for_update(
     let update = updater.check().await.map_err(|e| e.to_string())?;
     match update {
         Some(update) => {
-            let info = UpdateInfo {
-                version: update.version.clone(),
-                current_version: update.current_version.clone(),
-                body: update.body.clone(),
-                date: update.date.map(|d| d.to_string()),
-            };
+            let info = update_info(&update);
             *pending.0.lock().await = Some(update);
             Ok(Some(info))
         }
@@ -49,6 +53,14 @@ pub async fn check_for_update(
             Ok(None)
         }
     }
+}
+
+/// Reads back whatever the startup auto-check already found, without
+/// triggering a new network check — lets the gallery surface it once a
+/// window actually exists to show it in.
+#[tauri::command]
+pub async fn get_pending_update(pending: State<'_, Arc<PendingUpdate>>) -> Result<Option<UpdateInfo>, String> {
+    Ok(pending.0.lock().await.as_ref().map(update_info))
 }
 
 #[tauri::command]

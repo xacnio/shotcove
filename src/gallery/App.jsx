@@ -8,6 +8,7 @@ import TitleBar from "../components/TitleBar.jsx";
 import Onboarding from "../onboarding/Onboarding.jsx";
 import LegalUpdateModal from "../onboarding/LegalUpdateModal.jsx";
 import WhatsNewModal from "../components/WhatsNewModal.jsx";
+import UpdateAvailableModal from "../components/UpdateAvailableModal.jsx";
 import { LEGAL_VERSION } from "../lib/legal.js";
 import { compareVersions } from "../lib/version.js";
 import { SHORTCUT_ICON, CAPTURE_TYPE_ICON, shortcutLabel } from "../components/ShortcutEditor.jsx";
@@ -482,6 +483,7 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showLegalUpdate, setShowLegalUpdate] = useState(false);
   const [whatsNewReleases, setWhatsNewReleases] = useState(null);
+  const [pendingUpdate, setPendingUpdate] = useState(null);
   const [freeUpProgress, setFreeUpProgress] = useState(null); // {done, total, bytes}
   const [loadProgress, setLoadProgress] = useState(null); // {step, count}
   const [viewMode, setViewMode] = useState("medium"); // "2xl"|"xl"|"large"|"medium"|"small"|"list"
@@ -562,11 +564,22 @@ export default function App() {
         .sort((a, b) => compareVersions(b.version, a.version));
       if (pending.length > 0) {
         setWhatsNewReleases(pending);
-        return;
+        return true;
       }
     }
     if (lastSeen !== current) {
       invoke("save_settings", { settings: { ...settings, last_seen_version: current } });
+    }
+    return false;
+  }, []);
+
+  // Surfaces an update the startup auto-check already found (see
+  // get_pending_update) — once per version, and only when nothing else
+  // (onboarding/legal/what's-new) is already claiming the screen.
+  const checkPendingUpdate = useCallback(async (settings) => {
+    const info = await invoke("get_pending_update").catch(() => null);
+    if (info && info.version !== settings.last_notified_update_version) {
+      setPendingUpdate(info);
     }
   }, []);
 
@@ -589,7 +602,7 @@ export default function App() {
         introCheckedRef.current = true;
         if (!s.onboarded) setShowOnboarding(true);
         else if (s.accepted_legal_version !== LEGAL_VERSION) setShowLegalUpdate(true);
-        else checkWhatsNew(s);
+        else checkWhatsNew(s).then((shown) => { if (!shown) checkPendingUpdate(s); });
       }
       // Discard stale response if a newer request has started
       if (version !== loadVersionRef.current) return;
@@ -609,7 +622,7 @@ export default function App() {
       if (version === loadVersionRef.current) setLoading(false);
     }
     invoke("get_storage_info").then(setStorage).catch(() => { });
-  }, [showToast, checkWhatsNew]);
+  }, [showToast, checkWhatsNew, checkPendingUpdate]);
 
   const scheduleReload = useCallback(() => {
     clearTimeout(reloadTimer.current);
@@ -696,7 +709,7 @@ export default function App() {
         const s = await invoke("get_settings");
         if (!s.onboarded) return;
         if (s.accepted_legal_version !== LEGAL_VERSION) setShowLegalUpdate(true);
-        else checkWhatsNew(s);
+        else checkWhatsNew(s).then((shown) => { if (!shown) checkPendingUpdate(s); });
       }));
     })();
     return () => {
@@ -1482,7 +1495,9 @@ export default function App() {
         {showLegalUpdate && (
           <LegalUpdateModal t={t} lang={lang} onAccept={async () => {
             setShowLegalUpdate(false);
-            checkWhatsNew(await invoke("get_settings"));
+            const s = await invoke("get_settings");
+            const shown = await checkWhatsNew(s);
+            if (!shown) checkPendingUpdate(s);
           }} />
         )}
 
@@ -1493,6 +1508,16 @@ export default function App() {
             const current = await invoke("get_app_version").catch(() => null);
             if (current) invoke("save_settings", { settings: { ...s, last_seen_version: current } });
             setWhatsNewReleases(null);
+            checkPendingUpdate(s);
+          }} />
+        )}
+
+        {/* Update found by the startup auto-check */}
+        {pendingUpdate && (
+          <UpdateAvailableModal info={pendingUpdate} t={t} onClose={async () => {
+            const s = await invoke("get_settings");
+            invoke("save_settings", { settings: { ...s, last_notified_update_version: pendingUpdate.version } });
+            setPendingUpdate(null);
           }} />
         )}
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { marked } from "marked";
 import { openExternalLinks } from "../lib/links.js";
 import { translateHtml } from "../lib/translate.js";
+import { extractChangelog } from "../lib/version.js";
 
 const docClasses =
   "select-text text-sm text-stone-300 leading-relaxed space-y-3" +
@@ -11,25 +12,25 @@ const docClasses =
 
 // `releases` is pre-filtered/sorted by the caller to (lastSeenVersion, currentVersion].
 export default function WhatsNewModal({ releases, lang, t, onClose }) {
-  const [html, setHtml] = useState(() => releases.map((r) => marked.parse(r.body || "")));
+  const [html, setHtml] = useState(() => releases.map((r) => marked.parse(extractChangelog(r.body || ""))));
   const [translated, setTranslated] = useState(false);
   const [translating, setTranslating] = useState(false);
   const canTranslate = lang && lang !== "en";
 
   useEffect(() => {
-    setHtml(releases.map((r) => marked.parse(r.body || "")));
+    setHtml(releases.map((r) => marked.parse(extractChangelog(r.body || ""))));
     setTranslated(false);
   }, [releases]);
 
   const toggleTranslate = async () => {
     if (translated) {
-      setHtml(releases.map((r) => marked.parse(r.body || "")));
+      setHtml(releases.map((r) => marked.parse(extractChangelog(r.body || ""))));
       setTranslated(false);
       return;
     }
     setTranslating(true);
     try {
-      setHtml(await Promise.all(releases.map((r) => translateHtml(marked.parse(r.body || ""), lang))));
+      setHtml(await Promise.all(releases.map((r) => translateHtml(marked.parse(extractChangelog(r.body || "")), lang))));
       setTranslated(true);
     } finally {
       setTranslating(false);
