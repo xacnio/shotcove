@@ -8,14 +8,11 @@ import Shortcuts from "./components/Shortcuts.jsx";
 import Download from "./components/Download.jsx";
 import Changelog from "./components/Changelog.jsx";
 import Footer from "./components/Footer.jsx";
-import { detectPlatform } from "./lib/platform.js";
 
 export default function App() {
   const releases = releaseData.releases ?? [];
   const latestRelease = releases.find((r) => !r.prerelease) ?? releases[0] ?? null;
   const latestVersion = latestRelease?.tag?.replace(/^v/, "");
-
-  const primaryDownload = latestRelease?.downloads.find((d) => d.platform === detectPlatform());
 
   // Arriving from another page (e.g. terms.html) with a "#features"-style
   // hash: the browser's native scroll-on-load can fire before React has
@@ -30,7 +27,7 @@ export default function App() {
     <div className="min-h-screen">
       <Header />
       <main>
-        <Hero latestVersion={latestVersion} primaryDownloadUrl={primaryDownload?.url} />
+        <Hero latestVersion={latestVersion} downloads={latestRelease?.downloads ?? []} />
         <Screenshots />
         <Features />
         <Shortcuts />

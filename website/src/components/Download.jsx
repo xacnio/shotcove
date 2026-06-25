@@ -1,5 +1,5 @@
 import { FiDownload } from "react-icons/fi";
-import { formatBytes, assetLabel } from "../lib/platform.js";
+import { formatBytes, assetLabel, sortByArch } from "../lib/platform.js";
 import { useLanguage } from "../lib/LanguageContext.jsx";
 
 const PLATFORM_KEYS = ["windows", "macos", "linux"];
@@ -19,7 +19,7 @@ export default function Download({ latestRelease }) {
       <div className="mt-8 grid sm:grid-cols-3 gap-4">
         {PLATFORM_KEYS.map((key) => {
           const p = platforms[key];
-          const assets = downloads.filter((d) => d.platform === key);
+          const assets = sortByArch(downloads.filter((d) => d.platform === key));
           return (
             <div key={key} className="rounded-xl border border-stone-800 bg-stone-900/60 p-5 flex flex-col">
               <h3 className="font-semibold text-stone-100">{p.label}</h3>
@@ -37,7 +37,11 @@ export default function Download({ latestRelease }) {
                     <span className="flex items-center gap-2 text-stone-300 group-hover:text-stone-100">
                       <FiDownload size={14} className="text-stone-500 group-hover:text-accent-400" />
                       {assetLabel(a.name)}
-                      {a.arch === "arm64" && <span className="text-[10px] text-stone-500">ARM64</span>}
+                      {a.arch === "arm64" && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded px-1.5 py-0.5">
+                          ARM64
+                        </span>
+                      )}
                     </span>
                     <span className="text-xs text-stone-500">{formatBytes(a.size)}</span>
                   </a>

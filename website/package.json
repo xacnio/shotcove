@@ -6,7 +6,8 @@
   "scripts": {
     "fetch-data": "node scripts/fetch-releases.mjs && node scripts/build-legal.mjs",
     "dev": "npm run fetch-data && vite",
-    "build": "npm run fetch-data && vite build",
+    "build": "npm run fetch-data && node scripts/build-site.mjs github",
+    "build:xacnio-dev": "npm run fetch-data && node scripts/build-site.mjs xacnio-dev",
     "preview": "vite preview"
   },
   "dependencies": {

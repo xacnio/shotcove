@@ -1,4 +1,5 @@
 export default {
+  scrollToTop: "Scroll to top",
   nav: { features: "Features", download: "Download", changelog: "Changelog" },
   header: { download: "Download" },
   hero: {
@@ -8,6 +9,7 @@ export default {
     desc: "Shotcove is a screenshot tool that lives in your tray. Fully customizable shortcuts cover area, window and full-screen capture — every shot opens in a built-in editor, then copies, saves or uploads to Drive or a Direct Link provider on its own.",
     downloadFor: (platform) => `Download for ${platform}`,
     otherPlatforms: "Other platforms",
+    otherArch: "Choose a different architecture",
     license: "Free and open source · MIT licensed",
   },
   platform: { windows: "Windows", macos: "macOS", linux: "Linux" },

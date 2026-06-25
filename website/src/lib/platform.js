@@ -6,6 +6,27 @@ export function detectPlatform() {
   return "windows";
 }
 
+// Best-effort, Chromium-only (userAgentData isn't in Safari/Firefox); returns
+// null when undetectable. x64 is by far the common case, so callers should
+// default to that — never to arm64 — when this comes back null.
+export async function detectArch() {
+  if (typeof navigator === "undefined" || !navigator.userAgentData?.getHighEntropyValues) return null;
+  try {
+    const { architecture } = await navigator.userAgentData.getHighEntropyValues(["architecture"]);
+    if (architecture === "arm") return "arm64";
+    if (architecture === "x86") return "x64";
+  } catch {
+    // ignore — falls through to null
+  }
+  return null;
+}
+
+// x64/universal first, arm64 last — picking the first match for a platform
+// (e.g. the Hero CTA) should never land on arm64 by accident.
+export function sortByArch(assets) {
+  return [...assets].sort((a, b) => (a.arch === "arm64" ? 1 : 0) - (b.arch === "arm64" ? 1 : 0));
+}
+
 export function formatBytes(bytes) {
   if (!bytes) return "";
   const mb = bytes / (1024 * 1024);

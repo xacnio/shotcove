@@ -1,4 +1,5 @@
 export default {
+  scrollToTop: "Yukarı kaydır",
   nav: { features: "Özellikler", download: "İndir", changelog: "Güncellemeler" },
   header: { download: "İndir" },
   hero: {
@@ -8,6 +9,7 @@ export default {
     desc: "Shotcove, sistem tepsisinde çalışan bir ekran görüntüsü aracıdır. Tamamen özelleştirilebilir kısayollar alan, pencere ve tam ekran yakalamayı kapsar — her görüntü otomatik olarak düzenleyicide açılır, sonra kendiliğinden kopyalanır, kaydedilir veya Drive'a ya da bir Direkt Link sağlayıcısına yüklenir.",
     downloadFor: (platform) => `${platform} için indir`,
     otherPlatforms: "Diğer platformlar",
+    otherArch: "Farklı mimari seç",
     license: "Ücretsiz ve açık kaynak · MIT lisanslı",
   },
   platform: { windows: "Windows", macos: "macOS", linux: "Linux" },

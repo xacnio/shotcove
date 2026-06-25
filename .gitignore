@@ -18,6 +18,7 @@ lerna-debug.log*
 
 node_modules
 dist
+dist-xacnio-dev
 dist-ssr
 *.local
 src/data/legal.json

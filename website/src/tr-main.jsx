@@ -6,7 +6,7 @@ import App from "./App.jsx";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <LanguageProvider routeLang="en">
+    <LanguageProvider routeLang="tr">
       <App />
     </LanguageProvider>
   </StrictMode>
