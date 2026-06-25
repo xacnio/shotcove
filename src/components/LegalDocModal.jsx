@@ -37,9 +37,9 @@ export default function LegalDocModal({ doc, title, lang, t, onClose }) {
   };
 
   return (
-    <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/85" onClick={onClose}>
+    <div className="absolute inset-0 z-[200] flex items-center justify-center bg-black/85 p-4" onClick={onClose}>
       <div
-        className="relative flex flex-col w-[560px] max-h-[80vh] rounded-2xl border border-stone-700/60 bg-stone-950 shadow-2xl shadow-black/80"
+        className="relative flex flex-col w-full max-w-[560px] max-h-[85vh] rounded-2xl border border-stone-700/60 bg-stone-950 shadow-2xl shadow-black/80 text-left"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-stone-800 shrink-0">
