@@ -29,6 +29,20 @@ impl IconCache {
         self.cache_path(app).exists()
     }
 
+    /// Extracts an icon directly from an exe path and caches it. Used by the
+    /// store-screenshot automation, which has no live window to sample from.
+    #[cfg(debug_assertions)]
+    #[allow(unused_variables)]
+    pub fn cache_from_exe_path(&self, app: &str, exe_path: &str) {
+        if app.is_empty() || self.has(app) {
+            return;
+        }
+        #[cfg(windows)]
+        if let Some(png) = extract_png_from_exe_path(exe_path) {
+            let _ = std::fs::write(self.cache_path(app), png);
+        }
+    }
+
     /// Extracts the icon from a window handle and caches it to disk.
     #[allow(unused_variables)]
     pub fn cache_from_hwnd(&self, app: &str, hwnd_u32: u32) {

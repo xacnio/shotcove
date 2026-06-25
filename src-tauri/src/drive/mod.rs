@@ -276,6 +276,23 @@ impl DriveClient {
         }
     }
 
+    /// Like `new`, but never reads real saved tokens (Windows' Credential
+    /// Manager is machine-wide, not per-`config_dir`). Used by the
+    /// store-screenshot automation to avoid surfacing a real account.
+    #[cfg(debug_assertions)]
+    pub fn new_isolated(config_dir: PathBuf) -> Self {
+        Self {
+            http: reqwest::Client::new(),
+            tokens_file_path: config_dir.join("tokens.dat"),
+            photo_cache_path: config_dir.join("profile_photo.cache"),
+            drive_list_cache_path: config_dir.join("cache").join("drive_list.json"),
+            tokens: Mutex::new(None),
+            folder_id: Mutex::new(None),
+            folder_init_lock: tokio::sync::Mutex::new(()),
+            cached_files: Mutex::new(None),
+        }
+    }
+
     pub fn is_connected(&self) -> bool {
         self.tokens.lock().unwrap().is_some()
     }

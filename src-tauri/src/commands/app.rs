@@ -17,6 +17,20 @@ pub fn has_builtin_credentials() -> bool {
     crate::config::has_builtin_credentials()
 }
 
+/// True if launched with `--store-screenshots` (debug builds only). Lets the
+/// frontend skip onboarding/legal modals during the screenshot automation.
+#[tauri::command]
+pub fn is_store_screenshot_mode() -> bool {
+    #[cfg(debug_assertions)]
+    {
+        crate::store_screenshots::requested()
+    }
+    #[cfg(not(debug_assertions))]
+    {
+        false
+    }
+}
+
 #[tauri::command]
 pub fn window_ready(window: tauri::WebviewWindow) {
     let _ = window.show();

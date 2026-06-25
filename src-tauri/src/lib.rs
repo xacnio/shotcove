@@ -10,6 +10,8 @@ mod direct_link;
 mod library;
 mod meta;
 mod overlay;
+#[cfg(debug_assertions)]
+mod store_screenshots;
 mod sync;
 mod tag;
 mod tray;
@@ -178,6 +180,7 @@ pub fn run() {
             commands::app::window_ready,
             commands::app::is_gallery_open,
             commands::app::has_builtin_credentials,
+            commands::app::is_store_screenshot_mode,
             commands::app::test_custom_provider,
             commands::app::flash_settings,
             commands::app::is_gallery_locked,
@@ -264,8 +267,26 @@ pub fn run() {
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             let config_dir = app.path().app_config_dir()?;
+            #[cfg(debug_assertions)]
+            let (config_dir, store_screenshots_mode) = if store_screenshots::requested() {
+                let dir = store_screenshots::temp_config_dir();
+                store_screenshots::prepare_temp_config(&dir);
+                (dir, true)
+            } else {
+                (config_dir, false)
+            };
+            #[cfg(not(debug_assertions))]
+            let _store_screenshots_mode = false;
+
             let store = Arc::new(ConfigStore::load(config_dir.clone()));
             app.manage(store.clone());
+            #[cfg(debug_assertions)]
+            let drive = Arc::new(if store_screenshots_mode {
+                DriveClient::new_isolated(config_dir.clone())
+            } else {
+                DriveClient::new(config_dir.clone())
+            });
+            #[cfg(not(debug_assertions))]
             let drive = Arc::new(DriveClient::new(config_dir.clone()));
             app.manage(drive.clone());
             app.manage(Arc::new(SyncState::load(config_dir.clone())));
@@ -348,6 +369,10 @@ pub fn run() {
                         }
                     }
                 });
+            }
+            #[cfg(debug_assertions)]
+            if store_screenshots_mode {
+                store_screenshots::run(app.handle().clone());
             }
             Ok(())
         })
