@@ -138,8 +138,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
-      - name: Install Rust nightly
-        uses: dtolnay/rust-toolchain@nightly
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.rust-targets }}
       - name: Set up sccache

@@ -76,7 +76,7 @@ screencapturekit = { version = "=7.0.1", features = ["macos_14_0"] }
 
 [profile.release]
 lto = "thin"
-codegen-units = 1
+codegen-units = 16
 strip = true
 
 # Fast personal build: no LTO, parallel codegen, still optimized
