@@ -70,7 +70,9 @@ objc2-foundation = { version = "0.3", features = ["NSArray", "NSString", "NSURL"
 # CGWindowListCreateImage (xcap's macOS capture backend) silently returns blank
 # images on newer macOS releases; ScreenCaptureKit is the only API Apple still
 # guarantees pixel data from.
-screencapturekit = { version = "8", features = ["macos_14_0"] }
+# Pinned below 8.0.0: that release duplicates apple-cf's CoreMediaBridge Swift
+# symbols (AudioBufferBridge etc.), causing a "duplicate symbol" link error.
+screencapturekit = { version = "=7.0.1", features = ["macos_14_0"] }
 
 [profile.release]
 lto = "thin"

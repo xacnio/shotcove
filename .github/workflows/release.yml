@@ -174,12 +174,6 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          # Self-signed cert (no Apple Developer account): keeps the code
-          # signature identity stable across builds so macOS TCC permissions
-          # (Screen Recording) survive updates. Not notarized.
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: 'Shotcove Self Signed'
         with:
           tagName: ${{ needs.check-version.outputs.new_tag }}
           releaseName: "Shotcove ${{ needs.check-version.outputs.new_tag }}"
