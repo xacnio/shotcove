@@ -2,16 +2,37 @@ import { useEffect, useState } from "react";
 import { marked } from "marked";
 import { invoke, listen } from "../lib/tauri.js";
 import { openExternalLinks } from "../lib/links.js";
+import { translateHtml } from "../lib/translate.js";
 import { extractChangelog } from "../lib/version.js";
 
 // Shown once per update version (see Settings.last_notified_update_version)
 // when the gallery opens — covers both the "gallery opened at startup" case
 // and "user opened it later from the tray after an OS notification" case.
-export default function UpdateAvailableModal({ info, t, onClose }) {
+export default function UpdateAvailableModal({ info, lang, t, onClose }) {
   const [status, setStatus] = useState("idle"); // idle | downloading | error
   const [progress, setProgress] = useState(null);
   const [error, setError] = useState("");
-  const html = marked.parse(extractChangelog(info.body || ""));
+  const original = marked.parse(extractChangelog(info.body || ""));
+  const [html, setHtml] = useState(original);
+  const [translated, setTranslated] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const canTranslate = lang && lang !== "en";
+
+  const toggleTranslate = async (e) => {
+    e.preventDefault();
+    if (translated) {
+      setHtml(original);
+      setTranslated(false);
+      return;
+    }
+    setTranslating(true);
+    try {
+      setHtml(await translateHtml(original, lang));
+      setTranslated(true);
+    } finally {
+      setTranslating(false);
+    }
+  };
 
   useEffect(() => {
     let unlisten;
@@ -44,6 +65,13 @@ export default function UpdateAvailableModal({ info, t, onClose }) {
         </div>
 
         <div className="overflow-y-auto flex-1 px-6 py-4">
+          {canTranslate && (
+            <button onClick={toggleTranslate} disabled={translating}
+              className="mb-2 text-xs text-accent-400 hover:text-accent-300 disabled:opacity-50 transition-colors">
+              {translating ? t("legal.translating") : translated ? t("legal.showOriginal") : t("legal.translate")}
+            </button>
+          )}
+          {translated && <p className="mb-2 text-xs text-stone-500 italic">{t("legal.machineTranslated")}</p>}
           <div
             className="select-text text-sm text-stone-300 leading-relaxed space-y-3
               [&_a]:text-accent-400 [&_a]:hover:underline [&_strong]:text-stone-100 [&_strong]:font-semibold

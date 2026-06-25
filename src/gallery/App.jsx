@@ -1514,7 +1514,7 @@ export default function App() {
 
         {/* Update found by the startup auto-check */}
         {pendingUpdate && (
-          <UpdateAvailableModal info={pendingUpdate} t={t} onClose={async () => {
+          <UpdateAvailableModal info={pendingUpdate} lang={lang} t={t} onClose={async () => {
             const s = await invoke("get_settings");
             invoke("save_settings", { settings: { ...s, last_notified_update_version: pendingUpdate.version } });
             setPendingUpdate(null);
