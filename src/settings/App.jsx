@@ -8,6 +8,8 @@ import { Toggle, Radio, Row, Card, Button, inputCls } from "../components/settin
 import { ShortcutCard, PrintscreenCard } from "../components/ShortcutEditor.jsx";
 import { DirectLinkCard } from "../components/DirectLinkEditor.jsx";
 import LegalDocModal from "../components/LegalDocModal.jsx";
+import WhatsNewModal from "../components/WhatsNewModal.jsx";
+import { compareVersions } from "../lib/version.js";
 import logo from "../assets/logo.png";
 
 const LANGUAGES = [
@@ -168,10 +170,9 @@ useEffect(() => { invoke("window_ready").catch(() => {}); }, []);
     }
   };
 
-  const toggleHistory = async () => {
-    const next = !historyOpen;
-    setHistoryOpen(next);
-    if (next && history === null) {
+  const openReleaseHistory = async () => {
+    setHistoryOpen(true);
+    if (history === null) {
       setHistoryLoading(true);
       try {
         setHistory(await invoke("get_release_history"));
@@ -833,39 +834,25 @@ useEffect(() => { invoke("window_ready").catch(() => {}); }, []);
               )}
 
               <button
-                onClick={toggleHistory}
-                className="flex w-full items-center justify-between border-t border-stone-800 px-4 py-2.5 text-xs text-stone-400 hover:bg-stone-800/50 hover:text-stone-200 transition-colors"
+                onClick={openReleaseHistory}
+                disabled={historyLoading}
+                className="flex w-full items-center justify-between border-t border-stone-800 px-4 py-2.5 text-xs text-stone-400 hover:bg-stone-800/50 hover:text-stone-200 transition-colors disabled:opacity-50"
               >
-                {t("settings.about.releaseHistory")}
-                <MdChevronRight className={`h-3.5 w-3.5 transition-transform ${historyOpen ? "rotate-90" : ""}`} />
+                {historyLoading ? t("settings.about.loadingHistory") : t("settings.about.releaseHistory")}
+                <MdChevronRight className="h-3.5 w-3.5" />
               </button>
-              {historyOpen && (
-                <div className="border-t border-stone-800 divide-y divide-stone-800/70 max-h-56 overflow-y-auto">
-                  {historyLoading && (
-                    <p className="px-4 py-3 text-xs text-stone-500">{t("settings.about.loadingHistory")}</p>
-                  )}
-                  {!historyLoading && history?.length === 0 && (
-                    <p className="px-4 py-3 text-xs text-stone-500">{t("settings.about.noHistory")}</p>
-                  )}
-                  {!historyLoading && history?.map((r) => (
-                    <button
-                      key={r.version}
-                      onClick={() => invoke("open_url", { url: r.url })}
-                      className="flex w-full flex-col gap-0.5 px-4 py-2.5 text-left hover:bg-stone-800/50 transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-stone-200">{r.name || r.version}</span>
-                        {r.published_at && (
-                          <span className="text-[10px] text-stone-600">
-                            {new Date(r.published_at).toLocaleDateString(dateLocale)}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
             </div>
+
+            {historyOpen && history !== null && (
+              <WhatsNewModal
+                releases={[...history]
+                  .filter((r) => !appVersion || compareVersions(r.version, appVersion) <= 0)
+                  .sort((a, b) => compareVersions(b.version, a.version))}
+                lang={lang}
+                t={t}
+                onClose={() => setHistoryOpen(false)}
+              />
+            )}
 
             {/* Info rows */}
             <div className="w-full rounded-xl border border-stone-800 bg-stone-900 overflow-hidden text-left">
