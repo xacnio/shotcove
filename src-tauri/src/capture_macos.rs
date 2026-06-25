@@ -2,18 +2,32 @@
 //! on macOS. xcap still calls the deprecated `CGWindowListCreateImage`, which
 //! newer macOS releases allow (no permission re-prompt) but answer with a
 //! blank/empty image. ScreenCaptureKit is the API Apple still backs.
-use anyhow::{anyhow, Context, Result};
+//!
+//! Gated behind the `screencapturekit-capture` feature (on by default) so it
+//! can be disabled for testing/bisecting build issues without deleting any
+//! code - every caller already falls back to xcap when `is_available()` is
+//! false, so turning the feature off just means "always use the xcap path".
+use anyhow::Result;
 use image::RgbaImage;
+
+#[cfg(feature = "screencapturekit-capture")]
+use anyhow::{anyhow, Context};
+#[cfg(feature = "screencapturekit-capture")]
 use screencapturekit::screenshot_manager::{CGImageExt, ImageFormat as SckImageFormat, SCScreenshotManager};
+#[cfg(feature = "screencapturekit-capture")]
 use screencapturekit::shareable_content::{SCShareableContent, SCShareableContentInfo};
+#[cfg(feature = "screencapturekit-capture")]
 use screencapturekit::stream::configuration::SCStreamConfiguration;
+#[cfg(feature = "screencapturekit-capture")]
 use screencapturekit::stream::content_filter::SCContentFilter;
+#[cfg(feature = "screencapturekit-capture")]
 use std::sync::atomic::{AtomicU32, Ordering};
 
 /// `SCScreenshotManager` (the one-shot capture API we use) requires macOS 14+;
 /// on older systems the symbol is simply unavailable at runtime. Callers
 /// should check this and fall back to xcap's `CGWindowListCreateImage` path,
 /// which is still the only option pre-14 and isn't known to be broken there.
+#[cfg(feature = "screencapturekit-capture")]
 pub fn is_available() -> bool {
     let Ok(output) = std::process::Command::new("sw_vers")
         .arg("-productVersion")
@@ -31,11 +45,17 @@ pub fn is_available() -> bool {
         .unwrap_or(false)
 }
 
+#[cfg(not(feature = "screencapturekit-capture"))]
+pub fn is_available() -> bool {
+    false
+}
+
 /// `CGImageExt::rgba_data()` goes through the crate's custom Core Graphics
 /// re-render path, which comes back with a zeroed alpha channel (image is
 /// there but fully transparent, so it renders as black over a dark UI).
 /// `save()` writing through ImageIO does not have this bug, so we round-trip
 /// through a temp PNG instead of touching `rgba_data()`.
+#[cfg(feature = "screencapturekit-capture")]
 fn cgimage_to_rgba(image: &screencapturekit::screenshot_manager::CGImage) -> Result<RgbaImage> {
     static COUNTER: AtomicU32 = AtomicU32::new(0);
     let n = COUNTER.fetch_add(1, Ordering::Relaxed);
@@ -66,14 +86,19 @@ pub fn probe_permission() -> bool {
     if !is_available() {
         return legacy_probe_permission();
     }
-    let Ok(content) = SCShareableContent::get() else { return false };
-    let Some(display) = content.displays().into_iter().next() else { return false };
-    let filter = SCContentFilter::create()
-        .with_display(&display)
-        .with_excluding_windows(&[])
-        .build();
-    let config = SCStreamConfiguration::new().with_width(2).with_height(2);
-    SCScreenshotManager::capture_image(&filter, &config).is_ok()
+    #[cfg(feature = "screencapturekit-capture")]
+    {
+        let Ok(content) = SCShareableContent::get() else { return false };
+        let Some(display) = content.displays().into_iter().next() else { return false };
+        let filter = SCContentFilter::create()
+            .with_display(&display)
+            .with_excluding_windows(&[])
+            .build();
+        let config = SCStreamConfiguration::new().with_width(2).with_height(2);
+        return SCScreenshotManager::capture_image(&filter, &config).is_ok();
+    }
+    #[cfg(not(feature = "screencapturekit-capture"))]
+    false
 }
 
 #[link(name = "CoreGraphics", kind = "framework")]
@@ -95,6 +120,7 @@ fn legacy_probe_permission() -> bool {
 
 /// Captures a single display, identified by its `CGDirectDisplayID`
 /// (same value as `xcap::Monitor::id()` on macOS).
+#[cfg(feature = "screencapturekit-capture")]
 pub fn capture_display(display_id: u32) -> Result<RgbaImage> {
     let content = SCShareableContent::get()
         .map_err(|e| anyhow!("failed to list shareable content: {e}"))?;
@@ -124,6 +150,11 @@ pub fn capture_display(display_id: u32) -> Result<RgbaImage> {
     cgimage_to_rgba(&image)
 }
 
+#[cfg(not(feature = "screencapturekit-capture"))]
+pub fn capture_display(_display_id: u32) -> Result<RgbaImage> {
+    anyhow::bail!("screencapturekit-capture feature is disabled")
+}
+
 /// Captures a single window, identified by its `CGWindowID` (same value as
 /// `xcap::Window::id()` on macOS), as an isolated layer with real alpha at
 /// the rounded corners/shadow edge.
@@ -133,6 +164,7 @@ pub fn capture_display(display_id: u32) -> Result<RgbaImage> {
 /// reliably returns a fully transparent/blank frame for window-style content
 /// filters in this crate, while the stream API (the older, more mature path)
 /// renders window content correctly. Captures exactly one frame, then stops.
+#[cfg(feature = "screencapturekit-capture")]
 pub fn capture_window(window_id: u32) -> Result<RgbaImage> {
     use screencapturekit::prelude::*;
     use screencapturekit::cv::CVPixelBufferLockFlags;
@@ -197,4 +229,9 @@ pub fn capture_window(window_id: u32) -> Result<RgbaImage> {
 
     RgbaImage::from_raw(width, height, buffer)
         .ok_or_else(|| anyhow!("captured window pixel buffer does not match {width}x{height}"))
+}
+
+#[cfg(not(feature = "screencapturekit-capture"))]
+pub fn capture_window(_window_id: u32) -> Result<RgbaImage> {
+    anyhow::bail!("screencapturekit-capture feature is disabled")
 }

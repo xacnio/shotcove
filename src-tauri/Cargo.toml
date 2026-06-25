@@ -11,6 +11,13 @@ edition = "2021"
 name = "shotcove_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+default = ["screencapturekit-capture"]
+# Lets CI/local builds disable ScreenCaptureKit (and its apple-metal Swift
+# build dependency) without deleting any code, e.g. to bisect a macOS build
+# failure - xcap is still there as the always-available fallback capture path.
+screencapturekit-capture = ["screencapturekit"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -72,7 +79,8 @@ objc2-foundation = { version = "0.3", features = ["NSArray", "NSString", "NSURL"
 # guarantees pixel data from.
 # Pinned below 8.0.0: that release duplicates apple-cf's CoreMediaBridge Swift
 # symbols (AudioBufferBridge etc.), causing a "duplicate symbol" link error.
-screencapturekit = { version = "=7.0.1", features = ["macos_14_0"] }
+# optional: gated behind the screencapturekit-capture feature (see [features]).
+screencapturekit = { version = "=7.0.1", features = ["macos_14_0"], optional = true }
 
 [profile.release]
 lto = "thin"
