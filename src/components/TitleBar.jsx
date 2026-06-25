@@ -125,7 +125,7 @@ export default function TitleBar({ title = "Shotcove", noMaximize = false, noMin
 
   return (
     <div
-      className={`relative z-50 flex h-8 shrink-0 select-none items-center border-b border-white/[0.06] bg-stone-950 ${className}`}
+      className={`relative z-[10050] flex h-8 shrink-0 select-none items-center border-b border-white/[0.06] bg-stone-950 ${className}`}
       data-tauri-drag-region
       onDoubleClick={noMaximize ? undefined : toggleMax}
     >
