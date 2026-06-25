@@ -453,7 +453,37 @@ fn open_editor_inner(app: &AppHandle, image: RgbaImage, meta: CaptureMeta, auto_
             {
                 b = b.background_color(Color(15, 15, 15, 255));
             }
-            b.build()?;
+            #[allow(unused_variables)]
+            let win = b.build()?;
+            // `mac_visible_frame()`'s NSScreen::mainScreen() can be unreliable
+            // right after launch (e.g. the very first shortcut press triggers
+            // capture before AppKit has settled), so re-clamp against the real
+            // NSWindow's own screen now that it has one assigned.
+            #[cfg(target_os = "macos")]
+            {
+                use objc2_app_kit::NSWindow;
+                if let Ok(ns_ptr) = win.ns_window() {
+                    unsafe {
+                        let ns: &NSWindow = &*ns_ptr.cast();
+                        if let Some(screen) = ns.screen() {
+                            let full = screen.frame();
+                            let vf = screen.visibleFrame();
+                            let area_x = vf.origin.x;
+                            let area_y = full.size.height - (vf.origin.y + vf.size.height);
+                            let area_w = vf.size.width;
+                            let area_h = vf.size.height;
+                            let min_w = area_w.min(1000.0);
+                            let min_h = area_h.min(620.0);
+                            let win_w = area_w.min(1280.0).max(min_w);
+                            let win_h = area_h.min(800.0).max(min_h);
+                            let pos_x = (area_x + 80.0 + cascade).min(area_x + area_w - win_w).max(area_x);
+                            let pos_y = (area_y + 60.0 + cascade).min(area_y + area_h - win_h).max(area_y);
+                            let _ = win.set_size(tauri::LogicalSize::new(win_w, win_h));
+                            let _ = win.set_position(tauri::LogicalPosition::new(pos_x, pos_y));
+                        }
+                    }
+                }
+            }
             Ok(())
         };
         if let Err(e) = build() {
