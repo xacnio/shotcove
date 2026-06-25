@@ -588,19 +588,20 @@ export default function App() {
     if (!isBackground) setLoading(true);
     try {
       const command = forceRefresh ? "refresh_library" : "list_library";
-      const [list, status, s, opsCount] = await Promise.all([
+      const [list, status, s, opsCount, autoMode] = await Promise.all([
         invoke(command),
         invoke("get_drive_status"),
         invoke("get_settings"),
         invoke("get_offline_ops_count"),
+        invoke("is_store_screenshot_mode").catch(() => false),
       ]);
-      // Show onboarding wizard on first load only when the user has not completed it yet.
-      // Otherwise, if Terms/Privacy changed since the user last accepted them, re-prompt.
-      // Gated on a dedicated ref (not the version below) since StrictMode's dev-mode
-      // double-invoke means the version===1 call is often the one discarded as stale.
+      // Show onboarding on first load, or re-prompt if Terms/Privacy changed.
+      // Gated on a dedicated ref since StrictMode's double-invoke means the
+      // version===1 call is often discarded as stale. Skipped in autoMode.
       if (!introCheckedRef.current) {
         introCheckedRef.current = true;
-        if (!s.onboarded) setShowOnboarding(true);
+        if (autoMode) { /* no-op */ }
+        else if (!s.onboarded) setShowOnboarding(true);
         else if (s.accepted_legal_version !== LEGAL_VERSION) setShowLegalUpdate(true);
         else checkWhatsNew(s).then((shown) => { if (!shown) checkPendingUpdate(s); });
       }
@@ -708,6 +709,7 @@ export default function App() {
       unlisten.push(await listen("gallery-opened", async () => {
         const s = await invoke("get_settings");
         if (!s.onboarded) return;
+        if (await invoke("is_store_screenshot_mode").catch(() => false)) return;
         if (s.accepted_legal_version !== LEGAL_VERSION) setShowLegalUpdate(true);
         else checkWhatsNew(s).then((shown) => { if (!shown) checkPendingUpdate(s); });
       }));
