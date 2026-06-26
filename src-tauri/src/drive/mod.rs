@@ -244,6 +244,9 @@ pub struct DriveClient {
     pub(super) folder_id: Mutex<Option<String>>,
     pub(super) folder_init_lock: tokio::sync::Mutex<()>,
     pub(super) cached_files: Mutex<Option<(Vec<DriveFile>, std::time::Instant)>>,
+    /// Set while an OAuth `authorize()` call is waiting for the browser
+    /// redirect; lets `cancel_authorize` interrupt it early.
+    pub(super) auth_cancel: Mutex<Option<std::sync::Arc<std::sync::atomic::AtomicBool>>>,
 }
 
 impl DriveClient {
@@ -273,6 +276,7 @@ impl DriveClient {
             folder_id: Mutex::new(None),
             folder_init_lock: tokio::sync::Mutex::new(()),
             cached_files: Mutex::new(None),
+            auth_cancel: Mutex::new(None),
         }
     }
 
@@ -290,6 +294,16 @@ impl DriveClient {
             folder_id: Mutex::new(None),
             folder_init_lock: tokio::sync::Mutex::new(()),
             cached_files: Mutex::new(None),
+            auth_cancel: Mutex::new(None),
+        }
+    }
+
+    /// Interrupts an in-flight `authorize()` call, if any, so the UI doesn't
+    /// stay stuck on "waiting for browser approval" when the user closed the
+    /// tab without finishing the OAuth flow.
+    pub fn cancel_authorize(&self) {
+        if let Some(flag) = self.auth_cancel.lock().unwrap().as_ref() {
+            flag.store(true, std::sync::atomic::Ordering::Relaxed);
         }
     }
 

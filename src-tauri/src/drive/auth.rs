@@ -78,10 +78,36 @@ impl DriveClient {
         }
         open_browser(auth_url);
 
+        let cancel_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        *self.auth_cancel.lock().unwrap() = Some(cancel_flag.clone());
+        struct ClearCancelOnDrop<'a>(&'a DriveClient);
+        impl Drop for ClearCancelOnDrop<'_> {
+            fn drop(&mut self) {
+                *self.0.auth_cancel.lock().unwrap() = None;
+            }
+        }
+        let _clear_cancel = ClearCancelOnDrop(self);
+
         let expected_state = state.clone();
         let code = tokio::task::spawn_blocking(move || -> Result<String> {
-            listener.set_nonblocking(false).ok();
-            let (mut stream, _) = listener.accept().context("failed to receive redirect")?;
+            listener.set_nonblocking(true).ok();
+            let deadline = std::time::Instant::now() + Duration::from_secs(300);
+            let mut stream = loop {
+                if cancel_flag.load(std::sync::atomic::Ordering::Relaxed) {
+                    bail!("cancelled");
+                }
+                if std::time::Instant::now() >= deadline {
+                    bail!("timed out waiting for browser approval");
+                }
+                match listener.accept() {
+                    Ok((s, _)) => break s,
+                    Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(200));
+                    }
+                    Err(e) => return Err(e).context("failed to receive redirect"),
+                }
+            };
+            stream.set_nonblocking(false).ok();
             stream.set_read_timeout(Some(Duration::from_secs(180))).ok();
             let mut buf = [0u8; 4096];
             let n = stream.read(&mut buf)?;

@@ -198,6 +198,11 @@ pub fn disconnect_drive(drive: State<'_, Arc<DriveClient>>) {
 }
 
 #[tauri::command]
+pub fn cancel_drive_connect(drive: State<'_, Arc<DriveClient>>) {
+    drive.cancel_authorize();
+}
+
+#[tauri::command]
 pub async fn direct_link_upload(
     app: AppHandle,
     config: State<'_, Arc<ConfigStore>>,

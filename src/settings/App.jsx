@@ -224,12 +224,15 @@ useEffect(() => { invoke("window_ready").catch(() => {}); }, []);
         setPostConnectLoading(false);
       }
     } catch (e) {
-      setSaveError(String(e));
+      const msg = String(e);
+      if (!msg.includes("cancelled")) setSaveError(msg);
     } finally {
       setConnecting(false);
       refreshDriveStatus();
     }
   };
+
+  const cancelConnect = () => { invoke("cancel_drive_connect"); };
 
   const dismissPostConnect = () => { setPostConnectFolders(null); setPostConnectManual(""); };
 
@@ -598,6 +601,9 @@ useEffect(() => { invoke("window_ready").catch(() => {}); }, []);
               <Button variant="primary" disabled={connecting} onClick={() => connect(null)}>
                 {connecting ? t("settings.drive.connecting") : t("settings.drive.connect")}
               </Button>
+            )}
+            {connecting && (
+              <Button onClick={cancelConnect}>{t("common.cancel")}</Button>
             )}
             <Button onClick={syncNow}>{t("settings.drive.syncNow")}</Button>
             {(transfers.active?.length > 0 || transfers.queued?.length > 0 || transfers.history?.length > 0) && (

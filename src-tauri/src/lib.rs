@@ -190,6 +190,7 @@ pub fn run() {
             commands::app::get_drive_status,
             commands::app::connect_drive,
             commands::app::disconnect_drive,
+            commands::app::cancel_drive_connect,
             commands::app::list_drive_folders,
             commands::app::direct_link_upload,
             commands::app::sync_now,
