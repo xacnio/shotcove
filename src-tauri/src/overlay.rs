@@ -512,7 +512,8 @@ pub fn open_overlay(app: &AppHandle, mx: i32, my: i32, mw: u32, mh: u32, scale: 
             let (lx, ly, lw, lh) = (mx as f64 / scale as f64, my as f64 / scale as f64, mw as f64 / scale as f64, mh as f64 / scale as f64);
 
             let url = "pages/overlay.html";
-            let _win = WebviewWindowBuilder::new(
+            #[allow(unused_variables)]
+            let win = WebviewWindowBuilder::new(
                 &app2,
                 "overlay",
                 WebviewUrl::App(url.into()),
@@ -528,6 +529,15 @@ pub fn open_overlay(app: &AppHandle, mx: i32, my: i32, mw: u32, mh: u32, scale: 
             .position(lx, ly)
             .inner_size(lw, lh)
             .build()?;
+            // On macOS, position()/inner_size() applied during the builder can be
+            // overridden by AppKit's own placement before the window has a real
+            // NSScreen assigned (same root cause fixed for the editor window in
+            // open_editor_inner) — re-apply now that it has settled.
+            #[cfg(target_os = "macos")]
+            {
+                let _ = win.set_size(tauri::LogicalSize::new(lw, lh));
+                let _ = win.set_position(tauri::LogicalPosition::new(lx, ly));
+            }
             Ok(())
         };
         if let Err(e) = build() {
@@ -548,7 +558,8 @@ fn open_overlay_for_monitor(app: &AppHandle, label: String, mon_index: usize, mx
             #[cfg(not(target_os = "macos"))]
             let (lx, ly, lw, lh) = (mx as f64 / scale as f64, my as f64 / scale as f64, mw as f64 / scale as f64, mh as f64 / scale as f64);
 
-            let _win = WebviewWindowBuilder::new(
+            #[allow(unused_variables)]
+            let win = WebviewWindowBuilder::new(
                 &app2,
                 &label,
                 WebviewUrl::App(url.into()),
@@ -564,6 +575,12 @@ fn open_overlay_for_monitor(app: &AppHandle, label: String, mon_index: usize, mx
             .position(lx, ly)
             .inner_size(lw, lh)
             .build()?;
+            // See open_overlay() above for why this re-apply is needed on macOS.
+            #[cfg(target_os = "macos")]
+            {
+                let _ = win.set_size(tauri::LogicalSize::new(lw, lh));
+                let _ = win.set_position(tauri::LogicalPosition::new(lx, ly));
+            }
             Ok(())
         };
         if let Err(e) = build() {
