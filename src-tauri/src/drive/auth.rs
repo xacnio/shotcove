@@ -64,7 +64,7 @@ impl DriveClient {
             (0..16).map(|_| char::from(rng.gen_range(b'a'..=b'z'))).collect()
         };
 
-        let scope = "https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive";
+        let scope = "https://www.googleapis.com/auth/drive.file";
         let mut auth_url = format!(
             "{AUTH_URL}?client_id={}&redirect_uri={}&response_type=code&scope={}&code_challenge={}&code_challenge_method=S256&state={}&access_type=offline&prompt=consent",
             urlencode(&client_id),

@@ -497,7 +497,6 @@ useEffect(() => { invoke("window_ready").catch(() => {}); }, []);
                   ))}
                 </div>
               )}
-              {/* Manual name input for folders not visible via drive.file scope */}
               <div className="border-t border-stone-700 px-2.5 py-2 flex gap-2">
                 <input
                   type="text"
