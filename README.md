@@ -4,7 +4,7 @@
   <p>Screenshot tool with a built-in editor and automatic Google Drive sync, built with Tauri 2 + React</p>
 
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-  [![Version](https://img.shields.io/badge/version-1.0.5-blue)](https://github.com/xacnio/shotcove/releases)
+  [![Version](https://img.shields.io/badge/version-1.0.7-blue)](https://github.com/xacnio/shotcove/releases)
   [![Website](https://img.shields.io/badge/website-shotcove-orange)](https://xacnio.github.io/shotcove/)
 
   <a href="https://apps.microsoft.com/detail/9P3T7Q4B3PXZ?launch=true&mode=full" target="_blank">
